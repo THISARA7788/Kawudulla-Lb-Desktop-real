@@ -11,7 +11,26 @@ const googleDriveBackupService = require('./services/googleDriveBackupService');
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 // Connect to Local / Configured Database
-connectDB().then(() => {
+connectDB().then(async () => {
+  // Ensure default librarian account exists in database
+  try {
+    const User = require('./models/User');
+    const librarianExists = await User.findOne({ role: 'librarian' });
+    if (!librarianExists) {
+      console.log('🌱 No Librarian account found in database. Initializing default Librarian...');
+      await User.create({
+        name: 'Thisara',
+        email: process.env.LIBRARIAN_EMAIL || 'kawudullacollege2@gmail.com',
+        password: process.env.LIBRARIAN_PASSWORD || 'admin123',
+        role: 'librarian',
+        status: 'active',
+      });
+      console.log('✅ Default Librarian account initialized successfully.');
+    }
+  } catch (seedErr) {
+    console.warn('Librarian account check notice:', seedErr.message);
+  }
+
   // Start background sync engine
   syncService.init();
   // Start automated year-end class promotion engine

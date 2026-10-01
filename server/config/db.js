@@ -43,11 +43,21 @@ const connectDB = async () => {
         const { MongoMemoryServer } = require('mongodb-memory-server');
         const dbPath = getDbPath();
 
-        const bundledBinary = path.join(__dirname, '..', 'bin', 'mongod.exe');
+        let bundledBinary = path.join(__dirname, '..', 'bin', 'mongod.exe');
+        if (bundledBinary.includes('app.asar')) {
+          const unpacked = bundledBinary.replace('app.asar', 'app.asar.unpacked');
+          if (fs.existsSync(unpacked)) {
+            bundledBinary = unpacked;
+          }
+        }
+
         const binaryOptions = {};
         if (fs.existsSync(bundledBinary)) {
+          console.log(`Using bundled mongod binary at: ${bundledBinary}`);
           process.env.MONGOMS_SYSTEM_BINARY = bundledBinary;
           binaryOptions.systemBinary = bundledBinary;
+        } else {
+          console.warn(`Bundled mongod binary not found at: ${bundledBinary}`);
         }
 
         mongodInstance = await MongoMemoryServer.create({
