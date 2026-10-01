@@ -56,3 +56,7 @@ mongodb-data/
 server/data/db/
 *.mongo*
 *.lock
+
+# Secret Keys
+*google-service-account*.json
+*.pem
