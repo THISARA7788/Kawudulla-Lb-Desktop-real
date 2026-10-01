@@ -9,8 +9,10 @@ const googleDriveBackupService = require('../services/googleDriveBackupService')
 // @desc    Get current cloud connection and backup status
 // @access  Public / Protected
 router.get('/status', (req, res) => {
+  const atlasStatus = syncService.getStatus();
   res.json({
-    cloudAtlas: syncService.getStatus(),
+    ...atlasStatus,
+    cloudAtlas: atlasStatus,
     googleDrive: googleDriveBackupService.getStatus(),
   });
 });
