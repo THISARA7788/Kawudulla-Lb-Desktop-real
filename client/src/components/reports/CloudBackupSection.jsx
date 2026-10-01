@@ -1,5 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api/axios';
+import { formatDateTime } from '../../utils/dateUtils';
+
+const formatMonthYear = (monthStr, timeStr) => {
+  if (monthStr && typeof monthStr === 'string') {
+    const parts = monthStr.split('-');
+    if (parts.length >= 2) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const date = new Date(y, m - 1, 1);
+      if (!isNaN(date.getTime())) {
+        const monthName = date.toLocaleString('en-US', { month: 'long' });
+        return `${monthName} ${y}`;
+      }
+    }
+    return monthStr;
+  }
+  if (timeStr) {
+    const d = new Date(timeStr);
+    if (!isNaN(d.getTime())) {
+      const monthName = d.toLocaleString('en-US', { month: 'long' });
+      return `${monthName} ${d.getFullYear()}`;
+    }
+  }
+  return 'None';
+};
 
 export default function CloudBackupSection({ showToast }) {
   const [atlasStatus, setAtlasStatus] = useState(null);
@@ -207,7 +232,7 @@ export default function CloudBackupSection({ showToast }) {
             <div className="mt-4 p-3 bg-slate-50/80 rounded-xl border border-slate-100 flex items-center justify-between">
               <span className="text-[11px] font-bold text-slate-500">Last Cloud Sync:</span>
               <span className="text-[11px] font-black text-slate-700">
-                {atlasStatus?.lastBackupTime ? new Date(atlasStatus.lastBackupTime).toLocaleString() : 'Not Synced Yet'}
+                {atlasStatus?.lastBackupTime ? formatDateTime(atlasStatus.lastBackupTime) : 'Not Synced Yet'}
               </span>
             </div>
           </div>
@@ -233,12 +258,12 @@ export default function CloudBackupSection({ showToast }) {
               <span className={`material-symbols-outlined text-[16px] ${restoringFromAtlas ? 'animate-spin' : ''}`}>
                 cloud_download
               </span>
-              <span>{restoringFromAtlas ? 'Restoring...' : 'Pull / Restore'}</span>
+              <span>{restoringFromAtlas ? 'Restoring...' : 'Restore'}</span>
             </button>
           </div>
         </div>
 
-        {/* Card 2: Google Drive & Offline Backup */}
+        {/* Card 2: Google Drive Backup */}
         <div className="rounded-2xl border border-slate-200/80 border-l-4 border-l-emerald-600 bg-white p-5 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -247,8 +272,8 @@ export default function CloudBackupSection({ showToast }) {
                   <span className="material-symbols-outlined text-[20px]">add_to_drive</span>
                 </div>
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-800">Google Drive & Offline Backup</h3>
-                  <p className="text-[11px] text-slate-400 font-medium">Monthly archive & disaster recovery files</p>
+                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-800">Google Drive Backup</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Monthly automated cloud archive</p>
                 </div>
               </div>
               <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
@@ -264,8 +289,8 @@ export default function CloudBackupSection({ showToast }) {
             {/* Essential Status info */}
             <div className="mt-4 p-3 bg-slate-50/80 rounded-xl border border-slate-100 flex items-center justify-between">
               <span className="text-[11px] font-bold text-slate-500">Latest Drive Backup:</span>
-              <span className="text-[11px] font-black text-emerald-700 truncate max-w-[200px]" title={gdriveStatus?.lastUploadedFile || 'None'}>
-                {gdriveStatus?.lastUploadedFile ? gdriveStatus.lastUploadedFile : (gdriveStatus?.lastBackupMonth || 'None')}
+              <span className="text-[11px] font-black text-emerald-700">
+                {formatMonthYear(gdriveStatus?.lastBackupMonth, gdriveStatus?.lastBackupTime)}
               </span>
             </div>
           </div>
