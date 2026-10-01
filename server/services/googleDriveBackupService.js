@@ -76,6 +76,19 @@ class GoogleDriveBackupService {
     if (this.driveClient) return this.driveClient;
 
     try {
+      const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET;
+      const refreshToken = process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
+
+      // 1. OAuth2 Client (Best for Personal @gmail.com accounts - uses full 15 GB quota)
+      if (clientId && clientSecret && refreshToken) {
+        const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, 'http://localhost:5000/oauth2callback');
+        oauth2Client.setCredentials({ refresh_token: refreshToken });
+        this.driveClient = google.drive({ version: 'v3', auth: oauth2Client });
+        return this.driveClient;
+      }
+
+      // 2. Service Account Key JSON
       const keyPath = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH 
         ? path.resolve(process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH)
         : path.join(__dirname, '..', 'google-service-account.json');
@@ -243,6 +256,8 @@ class GoogleDriveBackupService {
         const checkRes = await drive.files.list({
           q: `name = '${filename}' and '${folderId}' in parents and trashed = false`,
           fields: 'files(id, name)',
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
         });
         if (checkRes.data.files && checkRes.data.files.length > 0) {
           existingFileId = checkRes.data.files[0].id;
@@ -255,6 +270,7 @@ class GoogleDriveBackupService {
           fileId: existingFileId,
           media: media,
           fields: 'id, name, webViewLink',
+          supportsAllDrives: true,
         });
         console.log(`✅ Updated existing Google Drive backup: ${filename} (ID: ${uploadResult.data.id})`);
       } else {
@@ -262,6 +278,7 @@ class GoogleDriveBackupService {
           resource: fileMetadata,
           media: media,
           fields: 'id, name, webViewLink',
+          supportsAllDrives: true,
         });
         console.log(`✅ Uploaded new Google Drive monthly backup: ${filename} (ID: ${uploadResult.data.id})`);
       }
