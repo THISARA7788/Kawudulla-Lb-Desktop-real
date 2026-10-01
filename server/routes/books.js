@@ -152,7 +152,57 @@ router.get('/lookup-isbn/:isbn', protect, authorize('librarian'), async (req, re
       }
     }
 
-    // 2. Query Google Books API (uses API Key from environment if defined)
+    // 2. Query Open Library Search API (Fast & highly reliable for all international and indexed books)
+    if (!bookData) {
+      try {
+        const olSearchRes = await fetch(`https://openlibrary.org/search.json?isbn=${cleanIsbn}`, {
+          headers: { 'User-Agent': 'KawudullaLibrary/1.0 (contact: kawudullacollege2@gmail.com)' },
+          signal: AbortSignal.timeout(6000)
+        });
+        if (olSearchRes.ok) {
+          const olData = await olSearchRes.json();
+          if (olData.docs && olData.docs.length > 0) {
+            const doc = olData.docs[0];
+            const coverUrl = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : '';
+            bookData = {
+              title: doc.title || '',
+              author: doc.author_name ? doc.author_name.join(', ') : '',
+              publisher: doc.publisher ? doc.publisher[0] : '',
+              publishedYear: doc.first_publish_year ? String(doc.first_publish_year) : (doc.publish_year ? String(doc.publish_year[0]) : ''),
+              description: '',
+              coverImageUrl: coverUrl
+            };
+          }
+        }
+      } catch (olSearchErr) {
+        console.warn('Open Library Search lookup failed:', olSearchErr.message);
+      }
+    }
+
+    // 3. Fallback to Open Library Direct ISBN endpoint
+    if (!bookData) {
+      try {
+        const olDirectRes = await fetch(`https://openlibrary.org/isbn/${cleanIsbn}.json`, {
+          headers: { 'User-Agent': 'KawudullaLibrary/1.0 (contact: kawudullacollege2@gmail.com)' },
+          signal: AbortSignal.timeout(6000)
+        });
+        if (olDirectRes.ok) {
+          const olDirect = await olDirectRes.json();
+          bookData = {
+            title: olDirect.title || '',
+            author: '',
+            publisher: olDirect.publishers ? olDirect.publishers[0] : '',
+            publishedYear: olDirect.publish_date ? olDirect.publish_date.split(' ').pop().replace(/[^0-9]/g, '') : '',
+            description: typeof olDirect.description === 'string' ? olDirect.description : (olDirect.description?.value || ''),
+            coverImageUrl: olDirect.covers && olDirect.covers.length > 0 ? `https://covers.openlibrary.org/b/id/${olDirect.covers[0]}-L.jpg` : ''
+          };
+        }
+      } catch (olDirectErr) {
+        console.warn('Open Library Direct lookup failed:', olDirectErr.message);
+      }
+    }
+
+    // 4. Query Google Books API
     if (!bookData) {
       try {
         const apiKey = process.env.GOOGLE_BOOKS_API_KEY;
@@ -160,7 +210,7 @@ router.get('/lookup-isbn/:isbn', protect, authorize('librarian'), async (req, re
           ? `https://www.googleapis.com/books/v1/volumes?q=isbn:${cleanIsbn}&key=${apiKey}`
           : `https://www.googleapis.com/books/v1/volumes?q=isbn:${cleanIsbn}`;
         
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: AbortSignal.timeout(6000) });
         if (response.status === 200) {
           const data = await response.json();
           if (data.items && data.items.length > 0) {
@@ -174,39 +224,13 @@ router.get('/lookup-isbn/:isbn', protect, authorize('librarian'), async (req, re
               coverImageUrl: info.imageLinks ? (info.imageLinks.thumbnail || info.imageLinks.smallThumbnail) : '',
             };
           }
-        } else {
-          console.warn(`Google Books API returned status ${response.status} for ${cleanIsbn}`);
         }
       } catch (gErr) {
         console.warn('Google Books API query failed, moving to fallbacks:', gErr.message);
       }
     }
 
-    // 3. Fallback to Open Library API
-    if (!bookData) {
-      try {
-        const olResponse = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${cleanIsbn}&format=json&jscmd=data`);
-        if (olResponse.ok) {
-          const olData = await olResponse.json();
-          const key = `ISBN:${cleanIsbn}`;
-          if (olData[key]) {
-            const info = olData[key];
-            bookData = {
-              title: info.title || '',
-              author: info.authors ? info.authors.map(a => a.name).join(', ') : '',
-              publisher: info.publishers ? info.publishers.map(p => p.name).join(', ') : '',
-              publishedYear: info.published_date ? info.published_date.split(' ').pop() : '',
-              description: typeof info.notes === 'string' ? info.notes : '',
-              coverImageUrl: info.cover ? (info.cover.large || info.cover.medium || info.cover.small) : '',
-            };
-          }
-        }
-      } catch (olErr) {
-        console.warn('Open Library fallback failed:', olErr.message);
-      }
-    }
-
-    // 4. Fallback to Sri Lankan National Registry if it wasn't queried first
+    // 5. Fallback to Sri Lankan National Registry if it wasn't queried first
     if (!bookData && !isSriLankan) {
       try {
         const slDetails = await lookupSriLankanISBN(cleanIsbn);
@@ -221,7 +245,7 @@ router.get('/lookup-isbn/:isbn', protect, authorize('librarian'), async (req, re
           };
         }
       } catch (slErr) {
-        console.warn('Sri Lankan registry lookup failed:', slErr.message);
+        console.warn('Sri Lankan registry fallback failed:', slErr.message);
       }
     }
 
