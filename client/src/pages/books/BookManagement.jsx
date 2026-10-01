@@ -617,6 +617,7 @@ export default function BookManagement() {
         showModal={showModal}
         editingBook={editingBook}
         form={form}
+        setForm={setForm}
         saving={saving}
         error={error}
         customCategory={customCategory}

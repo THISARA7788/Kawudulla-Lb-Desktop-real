@@ -14,6 +14,7 @@ export default function BookFormModal({
   showModal,
   editingBook,
   form,
+  setForm,
   saving,
   error,
   customCategory,
@@ -58,7 +59,11 @@ export default function BookFormModal({
     setDuplicateBook(null);
 
     // Set ISBN value inside parent React form state
-    handleChangeRef.current({ target: { name: 'isbn', value: cleanIsbn } });
+    if (setForm) {
+      setForm((prev) => ({ ...prev, isbn: cleanIsbn }));
+    } else {
+      handleChangeRef.current({ target: { name: 'isbn', value: cleanIsbn } });
+    }
 
     try {
       // 1. Check local catalog duplication
@@ -78,10 +83,23 @@ export default function BookFormModal({
       if (lookupRes.data && lookupRes.data.success && lookupRes.data.book) {
         const bookData = lookupRes.data.book;
         playBeep('success');
-        // Auto populate fields by mimicking target changes
-        Object.keys(bookData).forEach(key => {
-          handleChangeRef.current({ target: { name: key, value: bookData[key] } });
-        });
+        // Auto populate all fields atomically including coverImageUrl
+        if (setForm) {
+          setForm((prev) => ({
+            ...prev,
+            title: bookData.title || prev.title,
+            author: bookData.author || prev.author,
+            publisher: bookData.publisher || prev.publisher,
+            publishedYear: bookData.publishedYear || prev.publishedYear,
+            description: bookData.description || prev.description,
+            coverImageUrl: bookData.coverImageUrl || prev.coverImageUrl,
+            isbn: cleanIsbn
+          }));
+        } else {
+          Object.keys(bookData).forEach(key => {
+            handleChangeRef.current({ target: { name: key, value: bookData[key] } });
+          });
+        }
       } else {
         playBeep('error');
         setIsbnSearchError(lookupRes.data.message || 'ISBN code not found in databases. Please enter details manually.');

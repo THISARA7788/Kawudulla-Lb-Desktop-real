@@ -163,7 +163,10 @@ router.get('/lookup-isbn/:isbn', protect, authorize('librarian'), async (req, re
           const olData = await olSearchRes.json();
           if (olData.docs && olData.docs.length > 0) {
             const doc = olData.docs[0];
-            const coverUrl = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : '';
+            let coverUrl = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : '';
+            if (!coverUrl) {
+              coverUrl = `https://covers.openlibrary.org/b/isbn/${cleanIsbn}-L.jpg?default=false`;
+            }
             bookData = {
               title: doc.title || '',
               author: doc.author_name ? doc.author_name.join(', ') : '',
@@ -188,13 +191,16 @@ router.get('/lookup-isbn/:isbn', protect, authorize('librarian'), async (req, re
         });
         if (olDirectRes.ok) {
           const olDirect = await olDirectRes.json();
+          const coverUrl = olDirect.covers && olDirect.covers.length > 0 
+            ? `https://covers.openlibrary.org/b/id/${olDirect.covers[0]}-L.jpg`
+            : `https://covers.openlibrary.org/b/isbn/${cleanIsbn}-L.jpg?default=false`;
           bookData = {
             title: olDirect.title || '',
             author: '',
             publisher: olDirect.publishers ? olDirect.publishers[0] : '',
             publishedYear: olDirect.publish_date ? olDirect.publish_date.split(' ').pop().replace(/[^0-9]/g, '') : '',
             description: typeof olDirect.description === 'string' ? olDirect.description : (olDirect.description?.value || ''),
-            coverImageUrl: olDirect.covers && olDirect.covers.length > 0 ? `https://covers.openlibrary.org/b/id/${olDirect.covers[0]}-L.jpg` : ''
+            coverImageUrl: coverUrl
           };
         }
       } catch (olDirectErr) {
@@ -215,13 +221,17 @@ router.get('/lookup-isbn/:isbn', protect, authorize('librarian'), async (req, re
           const data = await response.json();
           if (data.items && data.items.length > 0) {
             const info = data.items[0].volumeInfo;
+            let coverImg = info.imageLinks ? (info.imageLinks.thumbnail || info.imageLinks.smallThumbnail || '') : '';
+            if (coverImg.startsWith('http:')) {
+              coverImg = coverImg.replace('http:', 'https:');
+            }
             bookData = {
               title: info.title || '',
               author: info.authors ? info.authors.join(', ') : '',
               publisher: info.publisher || '',
               publishedYear: info.publishedDate ? info.publishedDate.split('-')[0] : '',
               description: info.description || '',
-              coverImageUrl: info.imageLinks ? (info.imageLinks.thumbnail || info.imageLinks.smallThumbnail) : '',
+              coverImageUrl: coverImg || `https://covers.openlibrary.org/b/isbn/${cleanIsbn}-L.jpg?default=false`,
             };
           }
         }
@@ -246,6 +256,19 @@ router.get('/lookup-isbn/:isbn', protect, authorize('librarian'), async (req, re
         }
       } catch (slErr) {
         console.warn('Sri Lankan registry fallback failed:', slErr.message);
+      }
+    }
+
+    // 6. Ensure Cover Image is set if missing
+    if (bookData && !bookData.coverImageUrl) {
+      try {
+        const olCoverUrl = `https://covers.openlibrary.org/b/isbn/${cleanIsbn}-L.jpg?default=false`;
+        const headRes = await fetch(olCoverUrl, { method: 'HEAD', signal: AbortSignal.timeout(3000) });
+        if (headRes.status === 200) {
+          bookData.coverImageUrl = olCoverUrl;
+        }
+      } catch (covErr) {
+        // ignore
       }
     }
 
