@@ -168,7 +168,7 @@ class GoogleDriveBackupService {
 
     const [books, users, transactions, fines, fineConfigs, bookRequests, notifications] = await Promise.all([
       Book.find({}).lean(),
-      User.find({}).select('-password').lean(),
+      User.find({}).lean(),
       Transaction.find({}).lean(),
       Fine.find({}).lean(),
       FineConfig.find({}).lean(),
