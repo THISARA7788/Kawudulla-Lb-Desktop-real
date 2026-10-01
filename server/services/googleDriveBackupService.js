@@ -73,16 +73,22 @@ class GoogleDriveBackupService {
    * 3. Default credentials / OAuth2
    */
   getDriveClient() {
-    if (this.driveClient) return this.driveClient;
-
     try {
+      // Reload env to pick up freshly added tokens dynamically
+      const envPath = path.join(__dirname, '..', '.env');
+      if (fs.existsSync(envPath)) {
+        require('dotenv').config({ path: envPath, override: true });
+      }
+
+      if (this.driveClient) return this.driveClient;
+
       const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID;
       const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET;
       const refreshToken = process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
 
       // 1. OAuth2 Client (Best for Personal @gmail.com accounts - uses full 15 GB quota)
       if (clientId && clientSecret && refreshToken) {
-        const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, 'http://localhost:5000/oauth2callback');
+        const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, 'http://localhost:8085/oauth2callback');
         oauth2Client.setCredentials({ refresh_token: refreshToken });
         this.driveClient = google.drive({ version: 'v3', auth: oauth2Client });
         return this.driveClient;
@@ -407,6 +413,7 @@ class GoogleDriveBackupService {
   }
 
   getStatus() {
+    this.meta = getGDriveMeta();
     return {
       isConfigured: !!this.getDriveClient(),
       status: this.status,

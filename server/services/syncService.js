@@ -305,6 +305,15 @@ class SyncService {
   }
 
   getStatus() {
+    const meta = getSyncMeta();
+    this.lastBackupTime = meta.lastBackupTime || meta.lastSyncTime || this.lastBackupTime;
+    this.lastRestoreTime = meta.lastRestoreTime || this.lastRestoreTime;
+
+    // Asynchronously check connectivity if idle
+    if (this.status === 'idle') {
+      this.checkCloudReachable().catch(() => {});
+    }
+
     return {
       status: this.status,
       isOnline: this.isOnline,
