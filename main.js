@@ -56,7 +56,7 @@ function startBackendServer() {
   }
 }
 
-function createWindow() {
+async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1366,
     height: 868,
@@ -72,7 +72,27 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadURL(SERVER_URL);
+  // Check if React dev server (http://localhost:3000) is running
+  let targetUrl = SERVER_URL;
+  try {
+    const isDevRunning = await new Promise((resolve) => {
+      const req = http.get('http://localhost:3000', (res) => {
+        resolve(res.statusCode === 200 || res.statusCode === 304);
+      });
+      req.on('error', () => resolve(false));
+      req.setTimeout(800, () => {
+        req.destroy();
+        resolve(false);
+      });
+    });
+    if (isDevRunning) {
+      targetUrl = 'http://localhost:3000';
+    }
+  } catch (e) {
+    targetUrl = SERVER_URL;
+  }
+
+  mainWindow.loadURL(targetUrl);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -88,7 +108,7 @@ app.whenReady().then(async () => {
     await checkServerReady(SERVER_URL);
 
     // Create desktop window
-    createWindow();
+    await createWindow();
   } catch (error) {
     dialog.showErrorBox(
       'Startup Error',
