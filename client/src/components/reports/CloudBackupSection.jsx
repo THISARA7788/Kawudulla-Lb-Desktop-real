@@ -21,7 +21,7 @@ export default function CloudBackupSection({ showToast }) {
   const fetchStatus = async () => {
     try {
       setLoadingStatus(true);
-      const res = await api.get('/api/sync/status');
+      const res = await api.get('/sync/status');
       if (res.data) {
         setAtlasStatus(res.data.cloudAtlas || res.data);
         setGDriveStatus(res.data.googleDrive);
@@ -35,7 +35,7 @@ export default function CloudBackupSection({ showToast }) {
 
   useEffect(() => {
     fetchStatus();
-    const interval = setInterval(fetchStatus, 15000);
+    const interval = setInterval(fetchStatus, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -43,7 +43,7 @@ export default function CloudBackupSection({ showToast }) {
   const handleAtlasSync = async () => {
     try {
       setTriggeringAtlasSync(true);
-      const res = await api.post('/api/sync/backup');
+      const res = await api.post('/sync/backup');
       if (res.data && res.data.success) {
         showToast(`✅ MongoDB Atlas Cloud Synced! (${res.data.totalPushed || 0} records updated)`, 'success');
       } else {
@@ -62,7 +62,7 @@ export default function CloudBackupSection({ showToast }) {
     try {
       setRestoringFromAtlas(true);
       setShowAtlasRestoreModal(false);
-      const res = await api.post('/api/sync/restore');
+      const res = await api.post('/sync/restore');
       if (res.data && res.data.success) {
         showToast(`🎉 Restored ${res.data.totalRestored || 0} records from MongoDB Atlas Cloud!`, 'success');
         fetchStatus();
@@ -80,7 +80,7 @@ export default function CloudBackupSection({ showToast }) {
   const handleGDriveBackup = async () => {
     try {
       setTriggeringGDriveBackup(true);
-      const res = await api.post('/api/sync/gdrive/backup', { force: true });
+      const res = await api.post('/sync/gdrive/backup', { force: true });
       if (res.data.status === 'success') {
         showToast('✅ Google Drive Monthly Backup successfully uploaded!', 'success');
         fetchStatus();
@@ -97,7 +97,7 @@ export default function CloudBackupSection({ showToast }) {
   // 4. Download JSON Backup
   const handleDownloadJson = async () => {
     try {
-      const res = await api.get('/api/sync/download-json', { responseType: 'blob' });
+      const res = await api.get('/sync/download-json', { responseType: 'blob' });
       const blob = new Blob([res.data], { type: 'application/json' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -146,7 +146,7 @@ export default function CloudBackupSection({ showToast }) {
     try {
       setRestoringFromFile(true);
       setShowConfirmModal(false);
-      const res = await api.post('/api/sync/restore-json', { backupPayload: filePayload });
+      const res = await api.post('/sync/restore-json', { backupPayload: filePayload });
       if (res.data.status === 'success') {
         const counts = res.data.counts || {};
         showToast(
