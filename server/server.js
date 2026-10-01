@@ -24,8 +24,8 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 // Serve Local Uploads statically (Offline Cover Images)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -58,8 +58,8 @@ app.get('*', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  console.error('Server error caught:', err.message);
+  res.status(err.status || 500).json({ message: err.message || 'Something went wrong!' });
 });
 
 const PORT = process.env.PORT || 5000;

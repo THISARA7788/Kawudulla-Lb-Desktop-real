@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
 const { google } = require('googleapis');
 const stream = require('stream');
 
@@ -338,75 +339,81 @@ class GoogleDriveBackupService {
       throw new Error('Invalid backup file format. Missing "data" section.');
     }
 
-    const { books = [], users = [], transactions = [], fines = [], fineConfigs = [], bookRequests = [], notifications = [] } = backupPayload.data;
+    const {
+      books = [],
+      users = [],
+      transactions = [],
+      fines = [],
+      fineConfigs = [],
+      bookRequests = [],
+      notifications = [],
+    } = backupPayload.data;
 
-    let restoredBooks = 0;
-    let restoredUsers = 0;
-    let restoredTransactions = 0;
-    let restoredFines = 0;
-    let restoredFineConfigs = 0;
-    let restoredBookRequests = 0;
+    const collectionsToRestore = [
+      { name: 'users', docs: users },
+      { name: 'books', docs: books },
+      { name: 'transactions', docs: transactions },
+      { name: 'fines', docs: fines },
+      { name: 'fineconfigs', docs: fineConfigs },
+      { name: 'bookrequests', docs: bookRequests },
+      { name: 'notifications', docs: notifications },
+    ];
 
-    // 1. Restore Users / Members
-    for (const u of users) {
-      if (u._id) {
-        await User.findByIdAndUpdate(u._id, u, { upsert: true, setDefaultsOnInsert: true });
-        restoredUsers++;
+    const counts = {};
+
+    for (const item of collectionsToRestore) {
+      if (item.docs && item.docs.length > 0) {
+        try {
+          const coll = mongoose.connection.collection(item.name);
+          const ops = item.docs.map((doc) => {
+            const cleanDoc = { ...doc };
+            let docId = cleanDoc._id;
+            if (typeof docId === 'string' && mongoose.Types.ObjectId.isValid(docId) && docId.length === 24) {
+              docId = new mongoose.Types.ObjectId(docId);
+            }
+            cleanDoc._id = docId;
+            return {
+              replaceOne: {
+                filter: { _id: docId },
+                replacement: cleanDoc,
+                upsert: true,
+              },
+            };
+          });
+
+          await coll.bulkWrite(ops, { ordered: false });
+          counts[item.name] = item.docs.length;
+        } catch (err) {
+          console.warn(`[JSON Restore Warning] on ${item.name}:`, err.message);
+          counts[item.name] = 0;
+        }
+      } else {
+        counts[item.name] = 0;
       }
     }
 
-    // 2. Restore Books
-    for (const b of books) {
-      if (b._id) {
-        await Book.findByIdAndUpdate(b._id, b, { upsert: true, setDefaultsOnInsert: true });
-        restoredBooks++;
+    // Reconcile book availability after restore
+    try {
+      const syncService = require('./syncService');
+      if (typeof syncService.reconcileBookAvailability === 'function') {
+        await syncService.reconcileBookAvailability();
       }
+    } catch (rErr) {
+      console.warn('Reconcile error after JSON restore:', rErr.message);
     }
 
-    // 3. Restore Transactions / Circulation
-    for (const t of transactions) {
-      if (t._id) {
-        await Transaction.findByIdAndUpdate(t._id, t, { upsert: true, setDefaultsOnInsert: true });
-        restoredTransactions++;
-      }
-    }
-
-    // 4. Restore Fines
-    for (const f of fines) {
-      if (f._id) {
-        await Fine.findByIdAndUpdate(f._id, f, { upsert: true, setDefaultsOnInsert: true });
-        restoredFines++;
-      }
-    }
-
-    // 5. Restore FineConfigs
-    for (const fc of fineConfigs) {
-      if (fc._id) {
-        await FineConfig.findByIdAndUpdate(fc._id, fc, { upsert: true, setDefaultsOnInsert: true });
-        restoredFineConfigs++;
-      }
-    }
-
-    // 6. Restore Book Requests
-    for (const br of bookRequests) {
-      if (br._id) {
-        await BookRequest.findByIdAndUpdate(br._id, br, { upsert: true, setDefaultsOnInsert: true });
-        restoredBookRequests++;
-      }
-    }
-
-    console.log(`🎉 Disaster Recovery Complete: Restored ${restoredBooks} books, ${restoredUsers} users, ${restoredTransactions} transactions, ${restoredFines} fines.`);
+    console.log(`🎉 Disaster Recovery Complete: Restored ${counts.books || 0} books, ${counts.users || 0} users, ${counts.transactions || 0} transactions.`);
 
     return {
       status: 'success',
       message: 'Database successfully restored from JSON backup.',
       counts: {
-        books: restoredBooks,
-        users: restoredUsers,
-        transactions: restoredTransactions,
-        fines: restoredFines,
-        fineConfigs: restoredFineConfigs,
-        bookRequests: restoredBookRequests,
+        books: counts.books || 0,
+        users: counts.users || 0,
+        transactions: counts.transactions || 0,
+        fines: counts.fines || 0,
+        fineConfigs: counts.fineconfigs || 0,
+        bookRequests: counts.bookrequests || 0,
       },
       restoredAt: new Date().toISOString(),
     };
