@@ -91,4 +91,16 @@ router.post('/restore-json', protect, authorize('librarian'), async (req, res) =
   }
 });
 
+// @route   POST /api/sync/restore
+// @desc    Disaster Recovery: Pull all records from Cloud Atlas to Local Hard Drive
+// @access  Private (Librarian)
+router.post('/restore', protect, authorize('librarian'), async (req, res) => {
+  try {
+    const result = await syncService.restoreFromCloud();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: err.message, status: 'error' });
+  }
+});
+
 module.exports = router;
