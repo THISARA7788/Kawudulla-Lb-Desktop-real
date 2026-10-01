@@ -13,7 +13,7 @@ router.use(protect, authorize('librarian'));
 router.get('/dashboard', async (req, res) => {
   try {
     const totalBooks = await Book.countDocuments();
-    const totalMembers = await User.countDocuments({ status: 'active', role: { $ne: 'librarian' } });
+    const totalMembers = await User.countDocuments({ role: { $ne: 'librarian' } });
     const totalTransactions = await Transaction.countDocuments();
 
     const now = new Date();

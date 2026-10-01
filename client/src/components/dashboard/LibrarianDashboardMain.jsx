@@ -382,14 +382,14 @@ export default function LibrarianDashboardMain() {
           </div>
         </div>
 
-        {/* 5. Pending Registrations */}
+        {/* 5. Total Members */}
         <div
-          onClick={() => navigate('/pending-registration')}
+          onClick={() => navigate('/members')}
           className="p-2.5 rounded-xl border bg-white cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between w-full"
           style={{ borderColor: '#e2e8f0', minHeight: 114 }}
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: (!loading && dashboardStats?.pendingRegistrations > 0) ? '#FEF3C7' : '#f1f5f9' }}>
-            <span className={`material-symbols-outlined ${(!loading && dashboardStats?.pendingRegistrations > 0) ? 'text-[#D97706]' : 'text-slate-500'}`} style={{ fontSize: 16 }}>person_add</span>
+          <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-indigo-600" style={{ fontSize: 16 }}>group</span>
           </div>
           <div>
             {loading ? (
@@ -399,10 +399,10 @@ export default function LibrarianDashboardMain() {
                 className="text-3xl font-black text-black tracking-tight block leading-none mb-3.5 whitespace-nowrap"
                 style={{ fontFamily: "'Manrope', sans-serif" }}
               >
-                {(dashboardStats?.pendingRegistrations ?? 0).toLocaleString('en-US')}
+                {(dashboardStats?.totalMembers ?? 0).toLocaleString('en-US')}
               </span>
             )}
-            <span className="font-extrabold text-[9px] uppercase tracking-wider text-slate-500 block leading-tight whitespace-nowrap">Pending Registrations</span>
+            <span className="font-extrabold text-[9px] uppercase tracking-wider text-slate-500 block leading-tight whitespace-nowrap">Total Members</span>
           </div>
         </div>
 
