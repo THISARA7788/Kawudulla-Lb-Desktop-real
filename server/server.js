@@ -5,6 +5,7 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const syncService = require('./services/syncService');
 const autoPromotionService = require('./services/autoPromotionService');
+const googleDriveBackupService = require('./services/googleDriveBackupService');
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -15,6 +16,8 @@ connectDB().then(() => {
   syncService.init();
   // Start automated year-end class promotion engine
   autoPromotionService.init();
+  // Start Google Drive monthly automated backup engine
+  googleDriveBackupService.init();
 });
 
 const app = express();
