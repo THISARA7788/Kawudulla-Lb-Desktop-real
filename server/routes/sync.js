@@ -73,12 +73,16 @@ router.post('/trigger', protect, authorize('librarian'), async (req, res) => {
   }
 });
 
-// @route   POST /api/sync/restore
-// @desc    Disaster Recovery: Pull all records from Cloud Atlas to Local Hard Drive
+// @route   POST /api/sync/restore-json
+// @desc    Disaster Recovery: Restore database directly from uploaded JSON backup payload
 // @access  Private (Librarian)
-router.post('/restore', protect, authorize('librarian'), async (req, res) => {
+router.post('/restore-json', protect, authorize('librarian'), async (req, res) => {
   try {
-    const result = await syncService.restoreFromCloud();
+    const { backupPayload } = req.body;
+    if (!backupPayload) {
+      return res.status(400).json({ message: 'No backup payload provided in request body.' });
+    }
+    const result = await googleDriveBackupService.restoreFromBackupPayload(backupPayload);
     res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message, status: 'error' });

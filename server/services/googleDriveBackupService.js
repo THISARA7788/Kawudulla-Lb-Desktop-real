@@ -324,6 +324,88 @@ class GoogleDriveBackupService {
     }
   }
 
+  /**
+   * Disaster Recovery: Restores all collections from a single-file JSON backup payload
+   */
+  async restoreFromBackupPayload(backupPayload) {
+    if (!backupPayload || !backupPayload.data) {
+      throw new Error('Invalid backup file format. Missing "data" section.');
+    }
+
+    const { books = [], users = [], transactions = [], fines = [], fineConfigs = [], bookRequests = [], notifications = [] } = backupPayload.data;
+
+    let restoredBooks = 0;
+    let restoredUsers = 0;
+    let restoredTransactions = 0;
+    let restoredFines = 0;
+    let restoredFineConfigs = 0;
+    let restoredBookRequests = 0;
+
+    // 1. Restore Users / Members
+    for (const u of users) {
+      if (u._id) {
+        await User.findByIdAndUpdate(u._id, u, { upsert: true, setDefaultsOnInsert: true });
+        restoredUsers++;
+      }
+    }
+
+    // 2. Restore Books
+    for (const b of books) {
+      if (b._id) {
+        await Book.findByIdAndUpdate(b._id, b, { upsert: true, setDefaultsOnInsert: true });
+        restoredBooks++;
+      }
+    }
+
+    // 3. Restore Transactions / Circulation
+    for (const t of transactions) {
+      if (t._id) {
+        await Transaction.findByIdAndUpdate(t._id, t, { upsert: true, setDefaultsOnInsert: true });
+        restoredTransactions++;
+      }
+    }
+
+    // 4. Restore Fines
+    for (const f of fines) {
+      if (f._id) {
+        await Fine.findByIdAndUpdate(f._id, f, { upsert: true, setDefaultsOnInsert: true });
+        restoredFines++;
+      }
+    }
+
+    // 5. Restore FineConfigs
+    for (const fc of fineConfigs) {
+      if (fc._id) {
+        await FineConfig.findByIdAndUpdate(fc._id, fc, { upsert: true, setDefaultsOnInsert: true });
+        restoredFineConfigs++;
+      }
+    }
+
+    // 6. Restore Book Requests
+    for (const br of bookRequests) {
+      if (br._id) {
+        await BookRequest.findByIdAndUpdate(br._id, br, { upsert: true, setDefaultsOnInsert: true });
+        restoredBookRequests++;
+      }
+    }
+
+    console.log(`🎉 Disaster Recovery Complete: Restored ${restoredBooks} books, ${restoredUsers} users, ${restoredTransactions} transactions, ${restoredFines} fines.`);
+
+    return {
+      status: 'success',
+      message: 'Database successfully restored from JSON backup.',
+      counts: {
+        books: restoredBooks,
+        users: restoredUsers,
+        transactions: restoredTransactions,
+        fines: restoredFines,
+        fineConfigs: restoredFineConfigs,
+        bookRequests: restoredBookRequests,
+      },
+      restoredAt: new Date().toISOString(),
+    };
+  }
+
   getStatus() {
     return {
       isConfigured: !!this.getDriveClient(),
