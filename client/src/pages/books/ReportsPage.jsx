@@ -5,7 +5,6 @@ import api from '../../api/axios';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import ReportSummaryCards from '../../components/reports/ReportSummaryCards';
 import ReportDetailsTable from '../../components/reports/ReportDetailsTable';
-import CloudBackupSection from '../../components/reports/CloudBackupSection';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import XLSX from 'xlsx-js-style';
@@ -62,7 +61,6 @@ const REPORT_TYPES = [
   { id: 'members', label: 'Members', icon: 'group' },
   { id: 'books', label: 'Books', icon: 'menu_book' },
   { id: 'fines', label: 'Fines', icon: 'payments' },
-  { id: 'backup', label: 'Cloud & Backups', icon: 'cloud_sync' },
 ];
 
 const PRESETS = [
@@ -108,10 +106,6 @@ export default function ReportsPage() {
   useEffect(() => { if (user && user.role !== 'librarian') navigate('/dashboard', { replace: true }); }, [user, navigate]);
 
   const fetchReport = async () => {
-    if (reportType === 'backup') {
-      setLoading(false);
-      return;
-    }
     if (!token) return;
     setLoading(true);
     try {
@@ -655,9 +649,6 @@ export default function ReportsPage() {
   };
 
   const renderBody = () => {
-    if (reportType === 'backup') {
-      return <CloudBackupSection showToast={showToast} />;
-    }
     if (!reportData) return null;
     return (
       <>
@@ -716,89 +707,85 @@ export default function ReportsPage() {
               ))}
             </div>
 
-            {reportType !== 'backup' && (
-              <button
-                onClick={generateExcel}
-                disabled={!reportData || excelGenerating}
-                className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 text-white shadow-sm hover:shadow transition-all cursor-pointer self-end sm:self-auto shrink-0"
-                style={{ backgroundColor: '#15803d', opacity: !reportData || excelGenerating ? 0.5 : 1 }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
-                  {excelGenerating ? 'progress_activity' : 'table_view'}
-                </span>
-                {excelGenerating ? 'Generating Excel...' : 'Export Excel'}
-              </button>
-            )}
+            <button
+              onClick={generateExcel}
+              disabled={!reportData || excelGenerating}
+              className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 text-white shadow-sm hover:shadow transition-all cursor-pointer self-end sm:self-auto shrink-0"
+              style={{ backgroundColor: '#15803d', opacity: !reportData || excelGenerating ? 0.5 : 1 }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                {excelGenerating ? 'progress_activity' : 'table_view'}
+              </span>
+              {excelGenerating ? 'Generating Excel...' : 'Export Excel'}
+            </button>
           </div>
 
           {/* Date Range & Filter Controls */}
-          {reportType !== 'backup' && (
-            <div className="flex flex-wrap gap-3 mb-6 items-center bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-              <div className="flex items-center gap-2">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">From</label>
-                  <input
-                    type="date"
-                    value={dateRange.startDate}
-                    onChange={(e) => {
-                      setSelectedPreset('custom');
-                      setDateRange((p) => ({ ...p, startDate: e.target.value }));
-                    }}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-xl outline-none border border-slate-200 bg-slate-50 text-slate-700 focus:bg-white focus:border-[#9E0D0D] transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">To</label>
-                  <input
-                    type="date"
-                    value={dateRange.endDate}
-                    onChange={(e) => {
-                      setSelectedPreset('custom');
-                      setDateRange((p) => ({ ...p, endDate: e.target.value }));
-                    }}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-xl outline-none border border-slate-200 bg-slate-50 text-slate-700 focus:bg-white focus:border-[#9E0D0D] transition-all"
-                  />
-                </div>
+          <div className="flex flex-wrap gap-3 mb-6 items-center bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">From</label>
+                <input
+                  type="date"
+                  value={dateRange.startDate}
+                  onChange={(e) => {
+                    setSelectedPreset('custom');
+                    setDateRange((p) => ({ ...p, startDate: e.target.value }));
+                  }}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-xl outline-none border border-slate-200 bg-slate-50 text-slate-700 focus:bg-white focus:border-[#9E0D0D] transition-all"
+                />
               </div>
-
-              <div className="h-8 w-px bg-slate-200 hidden md:block mx-1" />
-
-              {/* Quick Presets */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {PRESETS.map((p) => {
-                  const isActive = selectedPreset === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => applyPreset(p.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
-                        isActive
-                          ? 'bg-[#9E0D0D] text-white shadow-xs'
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/70'
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  );
-                })}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">To</label>
+                <input
+                  type="date"
+                  value={dateRange.endDate}
+                  onChange={(e) => {
+                    setSelectedPreset('custom');
+                    setDateRange((p) => ({ ...p, endDate: e.target.value }));
+                  }}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-xl outline-none border border-slate-200 bg-slate-50 text-slate-700 focus:bg-white focus:border-[#9E0D0D] transition-all"
+                />
               </div>
-
-              <div className="flex-1" />
-
-              {/* Refresh Data Button */}
-              <button
-                onClick={fetchReport}
-                disabled={loading}
-                className="group px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-white hover:text-[#9E0D0D] border border-slate-200/90 hover:border-red-200 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 select-none"
-                title="Refresh Report Data"
-              >
-                <span className={`material-symbols-outlined text-[17px] text-[#9E0D0D] transition-transform duration-500 ${loading ? 'animate-spin' : 'group-hover:rotate-180'}`}>
-                  sync
-                </span>
-                <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
-              </button>
             </div>
-          )}
+
+            <div className="h-8 w-px bg-slate-200 hidden md:block mx-1" />
+
+            {/* Quick Presets */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {PRESETS.map((p) => {
+                const isActive = selectedPreset === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => applyPreset(p.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
+                      isActive
+                        ? 'bg-[#9E0D0D] text-white shadow-xs'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/70'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex-1" />
+
+            {/* Refresh Data Button */}
+            <button
+              onClick={fetchReport}
+              disabled={loading}
+              className="group px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-white hover:text-[#9E0D0D] border border-slate-200/90 hover:border-red-200 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 select-none"
+              title="Refresh Report Data"
+            >
+              <span className={`material-symbols-outlined text-[17px] text-[#9E0D0D] transition-transform duration-500 ${loading ? 'animate-spin' : 'group-hover:rotate-180'}`}>
+                sync
+              </span>
+              <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+          </div>
 
           {/* Report Body */}
           {loading ? (

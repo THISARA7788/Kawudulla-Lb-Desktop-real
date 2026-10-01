@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import CloudBackupSection from '../../components/reports/CloudBackupSection';
 
 export default function ProfileSettings() {
   const { user, token, login } = useAuth();
@@ -22,12 +23,6 @@ export default function ProfileSettings() {
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
 
-  // Cloud Sync & Disaster Recovery state
-  const [syncStatus, setSyncStatus] = useState(null);
-  const [backingUp, setBackingUp] = useState(false);
-  const [restoring, setRestoring] = useState(false);
-  const [showRestoreModal, setShowRestoreModal] = useState(false);
-
   // Toast notification state
   const [toast, setToast] = useState(null);
   const showToast = (message, type = 'success') => {
@@ -41,24 +36,6 @@ export default function ProfileSettings() {
     if (user) {
       setName(user.name || '');
       setGrade(user.grade || '');
-    }
-  }, [user]);
-
-  // Fetch Cloud status
-  const fetchSyncStatus = async () => {
-    try {
-      const res = await api.get('/sync/status');
-      setSyncStatus(res.data);
-    } catch (e) {
-      console.warn('Sync status fetch error:', e.message);
-    }
-  };
-
-  useEffect(() => {
-    if (user?.role === 'librarian') {
-      fetchSyncStatus();
-      const interval = setInterval(fetchSyncStatus, 15000);
-      return () => clearInterval(interval);
     }
   }, [user]);
 
@@ -130,46 +107,6 @@ export default function ProfileSettings() {
       showToast(err.response?.data?.message || 'Failed to change password.', 'error');
     } finally {
       setChangingPassword(false);
-    }
-  };
-
-  const handleManualBackup = async () => {
-    setBackingUp(true);
-    try {
-      const res = await api.post('/sync/backup');
-      showToast(`Cloud backup complete! Saved ${res.data?.totalPushed || 0} records to Cloud Atlas.`, 'success');
-      fetchSyncStatus();
-    } catch (err) {
-      showToast(err.response?.data?.message || 'Backup failed. Check internet connection.', 'error');
-    } finally {
-      setBackingUp(false);
-    }
-  };
-
-  const handleRestoreFromCloud = async () => {
-    setRestoring(true);
-    setShowRestoreModal(false);
-    try {
-      const res = await api.post('/sync/restore');
-      showToast(`Restore complete! Loaded ${res.data?.totalRestored || 0} records from Cloud Atlas onto this computer.`, 'success');
-      fetchSyncStatus();
-    } catch (err) {
-      showToast(err.response?.data?.message || 'Restore failed. Check cloud connection.', 'error');
-    } finally {
-      setRestoring(false);
-    }
-  };
-
-  const formatDateTime = (isoStr) => {
-    if (!isoStr) return 'Never';
-    try {
-      const d = new Date(isoStr);
-      return d.toLocaleString('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      });
-    } catch (e) {
-      return isoStr;
     }
   };
 
@@ -488,116 +425,13 @@ export default function ProfileSettings() {
           </div>
         </div>
 
-        {/* Card 3: Cloud Backup & Recovery (Librarian Exclusive) */}
+        {/* Comprehensive Cloud Backup & Disaster Recovery Hub (Librarian Exclusive) */}
         {role === 'librarian' && (
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center text-sky-600 flex-shrink-0">
-                  <span className="material-symbols-outlined text-[22px]">cloud_sync</span>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-black text-slate-800">Cloud Backup</h3>
-                    <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                      syncStatus?.isOnline
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-rose-50 text-rose-700 border-rose-200'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${syncStatus?.isOnline ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                      {syncStatus?.isOnline ? 'Connected' : 'Offline'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Last Backup: <span className="font-semibold text-slate-600">{formatDateTime(syncStatus?.lastBackupTime)}</span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={handleManualBackup}
-                  disabled={backingUp || restoring}
-                  className="px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95 border border-slate-200"
-                >
-                  {backingUp ? (
-                    <>
-                      <span className="material-symbols-outlined animate-spin text-[16px] text-sky-600">progress_activity</span>
-                      <span>Backing Up...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="material-symbols-outlined text-[16px] text-sky-600">backup</span>
-                      <span>Backup Now</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowRestoreModal(true)}
-                  disabled={backingUp || restoring}
-                  className="px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-wider text-white transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95 shadow-sm"
-                  style={{
-                    background: 'linear-gradient(135deg, #9E0D0D 0%, #4C0000 100%)',
-                  }}
-                >
-                  {restoring ? (
-                    <>
-                      <span className="material-symbols-outlined animate-spin text-[16px] text-white">progress_activity</span>
-                      <span>Restoring...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="material-symbols-outlined text-[16px] text-white">cloud_download</span>
-                      <span>Restore from Cloud</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+          <div className="pt-2">
+            <CloudBackupSection showToast={showToast} />
           </div>
         )}
       </div>
-
-      {/* Custom Confirmation Modal for Restore (No Native Alerts) */}
-      {showRestoreModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-100 space-y-4">
-            <div className="w-10 h-10 rounded-xl bg-red-50 text-[#9E0D0D] flex items-center justify-center mx-auto">
-              <span className="material-symbols-outlined text-2xl">cloud_download</span>
-            </div>
-
-            <div className="text-center space-y-1">
-              <h3 className="text-sm font-black text-slate-800">Restore Library from Cloud?</h3>
-              <p className="text-xs text-slate-500">
-                This will download all books, members, and transactions from Cloud Atlas onto this computer.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
-              <button
-                type="button"
-                onClick={() => setShowRestoreModal(false)}
-                className="py-2 rounded-xl font-bold text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleRestoreFromCloud}
-                className="py-2 rounded-xl font-bold text-xs text-white transition-all cursor-pointer shadow-sm active:scale-95"
-                style={{
-                  background: 'linear-gradient(135deg, #9E0D0D 0%, #4C0000 100%)',
-                }}
-              >
-                Confirm Restore
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Floating Animated Toast Notifications */}
       {toast && (
